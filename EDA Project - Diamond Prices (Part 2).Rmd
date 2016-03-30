@@ -1,0 +1,260 @@
+---
+title: "EDA - Diamond Prices Part 2"
+author: "Toavina Andriamanerasoa"
+output: 
+  html_document:
+    theme: spacelab
+    highlight: tango
+---
+
+## Problem 1 - Create a scatterplot of price vs. x using the ggplot syntax
+```{r price vs x, warnings = FALSE, message = FALSE}
+
+# Preamble - load the relevant data and libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+data(diamonds)
+diamonds <- tbl_df(diamonds)
+
+#Summarise data to find relevant axis limits
+summary(diamonds$x)
+summary(diamonds$price)
+
+# Code for scatterplot
+ggplot(data = diamonds,
+       aes(x = x, y = price))+
+  geom_point(alpha = 1/10, color = 'orange')+
+  scale_x_continuous(breaks = seq(0,11,1))
+```
+
+
+### What are your observations about the scatterplot of price vs. x?
+There seems to be a strong correlation between x and price, but it is not linear -  seems to be an exponential relationship, and there are a few outliers.
+
+### Correlation Questions
+Note: The following code was run to answer the correlation questions
+```{r correlation questions}
+with(diamonds, cor.test(x=x, y = price, method = 'pearson'))
+with(diamonds, cor.test(x=y, y = price, method = 'pearson'))
+with(diamonds, cor.test(x=z, y = price, method = 'pearson'))
+```
+
+### What is the correlation between price and x?
+0.88 to 2 decimal places
+
+### What is the correlation between price and y?
+0.87 to 2 decimal places
+
+### What is the correlation between price and z?
+0.86 to 2 decimal places
+
+***
+## Problem 2 - Create a scatterplot of price vs. depth
+```{r plot price vs depth}
+ggplot(data = diamonds,
+       aes(x = depth, y = price))+
+  geom_point(color = 'blue')+
+  scale_x_continuous(limits =c(40,80), breaks=seq(40,80,5))
+
+summary(diamonds$depth)
+```
+
+### Change the code to make the transparency of the points to be 1/100 of what they are now and mark the x-axis every 2 units
+```{r make points transparent and change axis}
+ggplot(data = diamonds,
+       aes(x = depth, y = price))+
+  geom_point(alpha = 1/100, color = 'blue')+
+  scale_x_continuous(limits =c(40,80), breaks=seq(56,68,2))
+```
+
+### Based on the scatterplot of depth vs. price, most diamonds are between what values of depth?
+Lower limit = 60
+Upper limit = 64
+
+### What is the correlation of depth vs. price?
+```{r correlation of depth and price}
+with(diamonds, cor.test(x=depth, y = price, method = 'pearson'))
+```
+
+### Based on the correlation coefficient, would you use depth to predict the price of a diamond?
+No, because price is insensitive to depth as evidenced by the low correlation coefficient
+
+***
+
+## Problem 3 - Create a scatterplot of price vs carat and omit the top 1% of price and carat values
+```{r scatterplot of price vs carat}
+ggplot(data = subset(diamonds, price < quantile(diamonds$price, probs = 0.99) & carat < quantile(diamonds$carat, probs = 0.99)),
+       aes(x = carat, y = price))+
+  geom_point(alpha = 1/100, color = 'green')
+```
+
+***
+
+## Problem 4 - Create a scatterplot of price vs volume (x * y * z)
+```{r scatterplot of price vs volume}
+diamonds$volume <- diamonds$x * diamonds$y * diamonds$z
+
+summary(diamonds$volume)
+summary(diamonds$carat)
+
+ggplot(diamonds, aes(x = volume, y = price))+
+  geom_point(alpha = 1/20, color = 'orange')+
+  scale_x_continuous(limits=c(0.0,500), breaks = seq(0,500,100))
+```
+
+### What are your observations from the price vs. volume scatterplot?
+There are a few outliers, but importantly there seems to be a strong correlation between volume and price, although variance increases as volume goes beyond 200.
+There are also diamonds with no volume (either an error or measurements so small that the diamond is basically invisible to the naked eye)
+
+### What is the correlation of price and volume? Exclude diamonds that have a volume of 0 or that are greater than or equal to 800
+
+See output below: c.92%
+```{r correlation of price and volume exc. outliers}
+with(subset(diamonds, volume != 0 & volume < 800), cor.test(x=volume, y=price, method = 'pearson'))
+```
+
+***
+## Problem 5 - Subset the data to exclude outliers (volume of 0 or >=800. Add transparency and linear model)
+```{r subset the data}
+diamonds_wo_outliers <- subset(diamonds, volume != 0 & volume < 800)
+
+ggplot(diamonds_wo_outliers, aes(x = volume, y = price))+
+  geom_point(alpha = 1/20, color = 'orange')+
+  scale_x_continuous(limits=c(0.0,500), breaks = seq(0,500,100))+
+  geom_smooth(method="lm", color='red')
+```
+
+### Do you think this would be a useful model to estimate the price of diamonds? Why or why not?
+Yes, it seems that volume is highly correlated with price. However, as volume increases, variance increases and the fit does not seem as good, so perhaps for larger volumes different information may be required.
+
+***
+
+## Problem 6 - Use dyplr to create a new dataframe containing info on diamonds by clarity
+```{r creating dataframe by clarity}
+diamondsByClarity <- diamonds %>% 
+  group_by(clarity) %>% 
+  summarise(mean_price = mean(price), median_price = median(price), min_price = min(price), max_price = max(price), n = n()) %>% 
+  arrange(clarity)
+```
+
+***
+
+## Problem 7 - Create two bar plots showing diamonds by clarity and by color
+```{r create bar plots of diamonds by clarity and color}
+diamonds_by_clarity <- group_by(diamonds, clarity)
+diamonds_mp_by_clarity <- summarise(diamonds_by_clarity, mean_price = mean(price))
+
+diamonds_by_color <- group_by(diamonds, color)
+diamonds_mp_by_color <- summarise(diamonds_by_color, mean_price = mean(price))
+
+library(gridExtra)
+
+p1 <- ggplot(data = diamonds_mp_by_color,
+       aes(x = color, y = mean_price)
+       )+
+  geom_bar(stat="identity")
+
+p2 <- ggplot(data = diamonds_mp_by_clarity,
+       aes(x = clarity, y = mean_price)
+       )+
+  geom_bar(stat="identity")
+
+grid.arrange(p1,p2, ncol = 1)
+```
+
+### What do you notice in each of the bar charts for mean price by clarity and mean price by color?
+For both color and clarity, the data is counter-intuitive and runs against what we'd expect (e.g. the higher quality the color and clarity, the higher the price will be). My intuition is that this does not take into account volume, so mean price should be per volume or per carat to adjust the data.
+
+***
+
+## Own Problem Set - Gapminder Data - Finding a relationship between GDP per capita (inflation adjusted) and men's Body Mass Index
+
+I hypothesise that countries that are economically richer, as evidenced by a higher GDP per capita would tend to have a higher body mass index as they have access to more calories more cheaply and would tend to be less physically active as their economy is less dependent on physical labour.
+
+In order to check whether there is a relationship between the two variable, I downloaded from the Gapminder website two datasets:
+
+1. An analysis of the mean male BMI (body mass index) counted in kilogram per square, with data on average BMI from 199 countries between 1980 and 2008
+
+2. GDP per capita in constant 2000 US$ to adjust for inflation - this does not account for purchasing power parity, but should reflect the economic prosperity of a country - This dataset is for 1960 to 2011, but does not have data for all countries
+
+I will investigate the two datasets, merge them and see if there is a relationship between GDP per capita and body mass index
+
+## Step 1 - Load, clean up and merge the data
+
+```{r}
+# Note - I'm assuming that the relevant libraries are already loaded by preceding code
+
+## Load data into dataframes
+GDP <- read.csv("GDPpercapitaconstant2000US.csv")
+BMI <- read.csv("Indicator_BMI male ASM.csv")
+
+GDP <- tbl_df(GDP)
+BMI <- tbl_df(BMI)
+```
+
+```{r}
+## Tidy the BMI data by creating a date column
+BMI <- BMI %>%
+  gather(Year, value = BMI, -Country) %>% 
+  mutate(Year = as.numeric(substr(Year,2,5)))
+```
+
+```{r}
+## Tidy the GDP data by creating a data column
+GDP <- GDP %>%
+  rename(Country = Income.per.person..fixed.2000.US..) %>%
+    gather(Year, value = GDP, -Country) %>% 
+  mutate(Year = as.numeric(substr(Year,2,5)))
+```
+
+```{r}
+## Merge the data together
+BMI_GDP <- inner_join(BMI,GDP, by=c("Country","Year"))
+```
+
+```{r}
+## Delete empty observations
+BMI_GDP <- BMI_GDP %>% 
+  filter(!is.na(GDP))
+```
+
+## Step 2 - Plot BMI vs. GDP to see if there is any relationship
+```{r}
+ggplot(data = BMI_GDP, aes(x = GDP, y = BMI))+
+  geom_point(alpha = 1/20, color = 'blue')
+```
+
+To me the chart shows that for poorer countries there doesn't seem to be a strong correlation between GDP and BMI for men. However, as GDP increases, there seems to be a positive correlation. However, if I zoom in the poorer end, things may be clearer.
+
+```{r}
+ggplot(data = BMI_GDP, aes(x = GDP, y = BMI))+
+  geom_point(alpha = 1/20, color = 'blue')+
+  scale_x_continuous(breaks = c(0,70000,5000), limits = c(50,15000))
+```
+
+This shows that at the lower end of GDP per capita, there is indeed a relationship. Let's figure out the relationship coefficient
+```{r}
+with(BMI_GDP, cor.test(x=GDP,y=BMI), method = 'pearson')
+```
+
+The data suggests that there is a significant correlation indeed between GDP and BMI, with a 48% correlation coefficient.
+
+The scatterplot suggests to me that there is a non-linear relationship between GDP and BMI. Given the huge disparity in GDP, if I were to plot BMI against the logarithm (base 10) of GDP, I might be able to see a better trend
+
+```{r}
+ggplot(data = BMI_GDP, aes(x = log10(GDP), y = BMI))+
+  geom_point(alpha = 1/20, color = 'blue')+
+  scale_x_continuous(breaks = c(0,70000,5000))+
+  geom_smooth(method = "lm", color = 'red')
+```
+
+Now the trend seems to fit better and I would expect the correlation coefficient to increase:
+```{r}
+with(BMI_GDP, cor.test(x=log10(GDP),y=BMI), method = 'pearson')
+```
+
+Indeed, the correlation coefficient now increases to 71%, which is very significant.
+
+This would support my hypothesis that as wealth increases, average BMI would tend to increase (the reverse not having much logic), but the relationship is not linear, with BMI tending to taper as GDP increases.
